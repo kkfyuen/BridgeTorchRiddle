@@ -3,787 +3,558 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bridge & Torch Logic Game</title>
+    <title>Animated Bridge & Torch Puzzle</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap');
         
         body {
-            font-family: 'Plus Jakarta Sans', sans-serif;
-            background-color: #0b0f19;
-            color: #f3f4f6;
+            font-family: 'Outfit', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
             overflow-x: hidden;
+            touch-action: manipulation;
         }
 
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar {
-            width: 6px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #111827;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #374151;
-            border-radius: 4px;
+        /* Smooth horizontal movement */
+        .character-node {
+            transition: left 1.5s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s ease;
+            position: absolute;
+            bottom: 20%;
+            transform: translateX(-50%);
+            z-index: 20;
         }
 
-        /* Torch Flame Effect */
+        /* Walking bobble animation */
+        @keyframes walk {
+            0%, 100% { transform: translateX(-50%) translateY(0); }
+            50% { transform: translateX(-50%) translateY(-15px) rotate(3deg); }
+        }
+        
+        .is-walking {
+            animation: walk 0.4s infinite;
+            z-index: 30;
+        }
+
+        /* Glowing torch effect */
         .torch-glow {
-            box-shadow: 0 0 25px 8px rgba(245, 158, 11, 0.4), 0 0 50px 15px rgba(239, 68, 68, 0.2);
-        }
-
-        .flame {
-            display: inline-block;
-            animation: flicker 0.6s infinite alternate ease-in-out;
+            box-shadow: 0 0 40px 15px rgba(245, 158, 11, 0.6), 0 0 80px 25px rgba(239, 68, 68, 0.3);
+            animation: flicker 1s infinite alternate ease-in-out;
         }
 
         @keyframes flicker {
-            0% { transform: scale(1) rotate(-2deg); opacity: 0.9; }
-            50% { transform: scale(1.1) rotate(2deg); opacity: 1; filter: drop-shadow(0 0 8px #f59e0b); }
-            100% { transform: scale(0.95) rotate(-1deg); opacity: 0.85; }
+            0% { opacity: 0.8; transform: scale(0.95); }
+            100% { opacity: 1; transform: scale(1.05); }
         }
 
-        /* Stars Background */
-        .stars-bg {
-            background-image: 
-                radial-gradient(2px 2px at 20px 30px, #ffffff, rgba(0,0,0,0)),
-                radial-gradient(2px 2px at 40px 70px, #ffffff, rgba(0,0,0,0)),
-                radial-gradient(1px 1px at 90px 40px, #ffffff, rgba(0,0,0,0)),
-                radial-gradient(2px 2px at 160px 120px, #ffffff, rgba(0,0,0,0)),
-                radial-gradient(1.5px 1.5px at 230px 80px, #ffffff, rgba(0,0,0,0));
-            background-repeat: repeat;
-            background-size: 300px 200px;
+        /* Animated Water */
+        @keyframes flow {
+            0% { background-position: 0 0; }
+            100% { background-position: 50px 0; }
+        }
+        
+        .water-texture {
+            background-image: radial-gradient(circle at 10px 10px, rgba(255,255,255,0.1) 2px, transparent 2px);
+            background-size: 30px 30px;
+            animation: flow 3s linear infinite;
         }
 
-        /* Bridge Rope Styling */
-        .bridge-plank {
-            background: linear-gradient(180deg, #78350f 0%, #451a03 100%);
-            border-bottom: 2px solid #290e05;
-        }
-
-        /* Walking Animation */
-        @keyframes walk-bounce {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-6px); }
-        }
-
-        .walking {
-            animation: walk-bounce 0.4s infinite ease-in-out;
-        }
-
-        /* Pulsing hint highlight */
-        .hint-pulse {
-            animation: pulse-border 1.5s infinite;
-        }
-
-        @keyframes pulse-border {
-            0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
-            50% { box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); }
+        /* Character Selection Glow */
+        .selected-char {
+            box-shadow: 0 0 0 6px #f59e0b, 0 0 20px #f59e0b;
+            transform: translateX(-50%) scale(1.1) !important;
+            z-index: 25;
         }
     </style>
 </head>
-<body class="min-h-screen flex flex-col justify-between stars-bg">
+<body class="min-h-screen flex flex-col selection:bg-amber-500 selection:text-slate-900">
 
-    <!-- Header -->
-    <header class="w-full bg-slate-900/80 backdrop-blur-md border-b border-slate-800 sticky top-0 z-30">
-        <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
-            <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 text-xl font-bold shadow-lg">
-                    <i class="fa-solid font-awesome fa-fire-flame-curved flame"></i>
-                </div>
+    <header class="w-full bg-slate-900/90 border-b border-slate-800 p-4 sticky top-0 z-50 shadow-xl">
+        <div class="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+            
+            <div class="flex items-center gap-4 text-center md:text-left">
+                <i class="fa-solid fa-fire text-amber-500 text-4xl animate-pulse"></i>
                 <div>
-                    <h1 class="text-xl font-extrabold text-white tracking-tight flex items-center gap-2">
-                        Bridge & Torch Riddle
-                    </h1>
-                    <p class="text-xs text-slate-400">Cross everyone before the torch burns out!</p>
+                    <h1 class="text-3xl md:text-4xl font-extrabold text-white tracking-tight">Bridge & Torch</h1>
+                    <p class="text-lg text-slate-400">Get everyone across in 15 minutes!</p>
                 </div>
             </div>
 
-            <!-- Header Controls & Status -->
-            <div class="flex items-center gap-3">
-                <button id="hint-btn" onclick="toggleHintModal()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition">
-                    <i class="fa-solid fa-lightbulb text-amber-400"></i> Solution Guide
-                </button>
-                <button onclick="resetGame()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition">
-                    <i class="fa-solid fa-rotate-right"></i> Reset
-                </button>
+            <!-- Massive Timer Display -->
+            <div class="bg-slate-950 border-2 border-slate-700 rounded-2xl px-6 py-3 flex items-center gap-4 shadow-inner">
+                <i class="fa-regular fa-clock text-3xl text-amber-400"></i>
+                <div class="flex items-baseline gap-2">
+                    <span id="time-display" class="text-5xl font-extrabold text-amber-400">0</span>
+                    <span class="text-2xl font-bold text-slate-500">/ 15 min</span>
+                </div>
             </div>
+            
         </div>
     </header>
 
-    <main class="max-w-6xl w-full mx-auto px-4 py-6 flex-1 flex flex-col gap-6">
-
-        <!-- Status Dashboard -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <!-- Timer Card -->
-            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 flex items-center justify-between shadow-xl">
-                <div>
-                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">Time Elapsed</span>
-                    <div class="flex items-baseline gap-1.5">
-                        <span id="time-display" class="text-3xl font-extrabold text-amber-400 tracking-tight">0</span>
-                        <span class="text-sm font-semibold text-slate-400">/ 15 mins</span>
-                    </div>
-                </div>
-                <div class="w-12 h-12 rounded-full bg-slate-800/80 border border-slate-700 flex items-center justify-center">
-                    <i class="fa-solid fa-clock text-amber-400 text-xl"></i>
-                </div>
+    <main class="flex-1 w-full max-w-7xl mx-auto p-4 flex flex-col gap-6 mt-4">
+        
+        <!-- Action Toolbar -->
+        <div class="flex flex-col sm:flex-row justify-between items-center gap-4 bg-slate-800/50 p-4 rounded-2xl border border-slate-700">
+            <div class="text-xl font-semibold text-slate-300 flex items-center gap-2">
+                <i class="fa-solid fa-circle-info text-blue-400"></i>
+                <span id="instruction-text">Select 1 or 2 people to cross.</span>
             </div>
-
-            <!-- Torch Location Indicator -->
-            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 flex items-center justify-between shadow-xl">
-                <div>
-                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">Torch Location</span>
-                    <div id="torch-location-text" class="text-lg font-bold text-emerald-400 flex items-center gap-2">
-                        <i class="fa-solid fa-fire flame text-amber-400"></i> Starting Bank (Left)
-                    </div>
-                </div>
-                <div class="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center torch-glow">
-                    <i class="fa-solid fa-torch text-amber-400 text-xl"></i>
-                </div>
-            </div>
-
-            <!-- Progress Bar Card -->
-            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between shadow-xl">
-                <div class="flex justify-between items-center mb-1">
-                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Torch Life</span>
-                    <span id="timer-percent" class="text-xs font-bold text-amber-400">100%</span>
-                </div>
-                <div class="w-full bg-slate-800 rounded-full h-3 overflow-hidden border border-slate-700/50">
-                    <div id="time-progress-bar" class="bg-gradient-to-r from-emerald-500 via-amber-500 to-rose-500 h-full w-full transition-all duration-500 rounded-full"></div>
-                </div>
-                <span id="moves-count-text" class="text-xs text-slate-400 mt-2">Moves: 0</span>
-            </div>
-        </div>
-
-        <!-- Interactive Game Stage -->
-        <div class="relative w-full bg-slate-950 border border-slate-800 rounded-3xl p-4 md:p-6 shadow-2xl overflow-hidden">
-
-            <!-- Background Visual: Gorge & River -->
-            <div class="absolute inset-0 z-0 opacity-40">
-                <div class="absolute bottom-0 w-full h-24 bg-gradient-to-t from-blue-950 to-transparent"></div>
-                <!-- Animated stars/water reflection -->
-                <div class="absolute bottom-2 left-1/2 transform -translate-x-1/2 text-blue-900/30 text-xs font-mono tracking-widest">
-                    ~~~~ RIVER CANYON ~~~~
-                </div>
-            </div>
-
-            <!-- Stage Grid Layout -->
-            <div class="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-
-                <!-- Left Bank (Start) -->
-                <div class="lg:col-span-4 bg-slate-900/80 backdrop-blur border border-slate-800/80 rounded-2xl p-4 flex flex-col gap-3 min-h-[320px]">
-                    <div class="flex items-center justify-between border-b border-slate-800 pb-2">
-                        <div class="flex items-center gap-2">
-                            <span class="w-3 h-3 rounded-full bg-amber-400 shadow-[0_0_8px_#f59e0b]"></span>
-                            <h2 class="font-bold text-white text-sm tracking-wide">LEFT BANK (START)</h2>
-                        </div>
-                        <span id="left-torch-badge" class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
-                            <i class="fa-solid fa-fire text-amber-400"></i> HAS TORCH
-                        </span>
-                    </div>
-
-                    <!-- Characters List Left -->
-                    <div id="left-side-container" class="flex-1 flex flex-col gap-2.5 justify-center py-2">
-                        <!-- Populated dynamically -->
-                    </div>
-                </div>
-
-                <!-- Middle Bridge Area & Controls -->
-                <div class="lg:col-span-4 flex flex-col items-center justify-center gap-4 py-4 lg:py-0">
-                    
-                    <!-- Wooden Bridge Graphic -->
-                    <div class="w-full relative py-6 px-2 flex flex-col items-center justify-center">
-                        <!-- Suspension Ropes -->
-                        <div class="w-full h-1 bg-amber-900/60 rounded-full mb-1 border-b border-amber-700/40"></div>
-                        
-                        <!-- Bridge Planks -->
-                        <div class="w-full h-12 bg-amber-950/80 rounded-lg border border-amber-800/60 flex justify-between items-center px-2 shadow-inner relative overflow-hidden">
-                            <div class="absolute inset-0 flex justify-around opacity-30 pointer-events-none">
-                                <div class="w-2 h-full bg-amber-900 border-r border-amber-950"></div>
-                                <div class="w-2 h-full bg-amber-900 border-r border-amber-950"></div>
-                                <div class="w-2 h-full bg-amber-900 border-r border-amber-950"></div>
-                                <div class="w-2 h-full bg-amber-900 border-r border-amber-950"></div>
-                                <div class="w-2 h-full bg-amber-900 border-r border-amber-950"></div>
-                            </div>
-                            
-                            <!-- Middle Walking Area Placeholder -->
-                            <div id="bridge-transit-area" class="w-full flex justify-center items-center gap-3 relative z-10 min-h-[44px]">
-                                <span class="text-xs text-slate-500 italic font-medium">Select up to 2 people on torch side</span>
-                            </div>
-                        </div>
-                        
-                        <!-- Bottom Ropes -->
-                        <div class="w-full h-1 bg-amber-900/60 rounded-full mt-1 border-t border-amber-700/40"></div>
-                    </div>
-
-                    <!-- Primary Action Button -->
-                    <button id="cross-btn" onclick="executeMove()" disabled class="w-full max-w-xs py-3 px-6 rounded-xl font-extrabold text-sm tracking-wide shadow-lg transition-all duration-200 transform active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 flex items-center justify-center gap-2">
-                        <i class="fa-solid fa-walking text-base"></i>
-                        <span id="cross-btn-text">CROSS BRIDGE →</span>
-                    </button>
-
-                    <!-- Auxiliary Controls -->
-                    <div class="flex items-center gap-2">
-                        <button onclick="undoMove()" id="undo-btn" disabled class="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-400 hover:text-white text-xs font-semibold flex items-center gap-1 transition disabled:opacity-40 disabled:cursor-not-allowed">
-                            <i class="fa-solid fa-rotate-left"></i> Undo
-                        </button>
-                        <button onclick="clearSelection()" class="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-400 hover:text-white text-xs font-semibold flex items-center gap-1 transition">
-                            <i class="fa-solid fa-xmark"></i> Clear Selection
-                        </button>
-                    </div>
-
-                </div>
-
-                <!-- Right Bank (Goal) -->
-                <div class="lg:col-span-4 bg-slate-900/80 backdrop-blur border border-slate-800/80 rounded-2xl p-4 flex flex-col gap-3 min-h-[320px]">
-                    <div class="flex items-center justify-between border-b border-slate-800 pb-2">
-                        <div class="flex items-center gap-2">
-                            <span class="w-3 h-3 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span>
-                            <h2 class="font-bold text-white text-sm tracking-wide">RIGHT BANK (GOAL)</h2>
-                        </div>
-                        <span id="right-torch-badge" class="hidden px-2 py-0.5 rounded text-[10px] font-extrabold bg-amber-500/20 text-amber-300 border border-amber-500/30 items-center gap-1">
-                            <i class="fa-solid fa-fire text-amber-400"></i> HAS TORCH
-                        </span>
-                    </div>
-
-                    <!-- Characters List Right -->
-                    <div id="right-side-container" class="flex-1 flex flex-col gap-2.5 justify-center py-2">
-                        <!-- Populated dynamically -->
-                    </div>
-                </div>
-
-            </div>
-        </div>
-
-        <!-- Bottom Section: Move Log & Rules Explanation -->
-        <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
             
-            <!-- Move History Log -->
-            <div class="md:col-span-6 bg-slate-900/80 border border-slate-800 rounded-2xl p-4 flex flex-col gap-3">
-                <div class="flex items-center justify-between border-b border-slate-800 pb-2">
-                    <h3 class="font-bold text-white text-sm flex items-center gap-2">
-                        <i class="fa-solid fa-list-ol text-amber-400"></i> Move History Log
-                    </h3>
-                    <span id="log-count" class="text-xs text-slate-400">0 steps taken</span>
-                </div>
-                <div id="history-list" class="flex flex-col gap-2 max-h-48 overflow-y-auto pr-1">
-                    <div class="text-xs text-slate-500 italic py-4 text-center">
-                        No moves made yet. Select people on the bank with the torch to start crossing.
-                    </div>
-                </div>
+            <div class="flex gap-4 w-full sm:w-auto">
+                <button onclick="undoMove()" id="undo-btn" disabled class="flex-1 sm:flex-none px-6 py-3 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-xl font-bold transition shadow-lg">
+                    <i class="fa-solid fa-rotate-left"></i> Undo
+                </button>
+                <button onclick="executeMove()" id="cross-btn" disabled class="flex-1 sm:flex-none px-8 py-3 bg-amber-500 hover:bg-amber-400 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed text-slate-950 rounded-xl text-2xl font-extrabold transition shadow-[0_0_15px_rgba(245,158,11,0.4)] flex items-center justify-center gap-3">
+                    GO <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- The Animated Stage (River, Bridge, Banks) -->
+        <div class="relative w-full h-[400px] md:h-[500px] bg-slate-950 rounded-3xl overflow-hidden border-4 border-slate-800 shadow-2xl">
+            
+            <!-- Background Elements (Night Sky & Stars) -->
+            <div class="absolute inset-0 opacity-50 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-800 via-slate-900 to-black"></div>
+            
+            <!-- Left Bank -->
+            <div class="absolute left-0 bottom-0 w-[30%] h-[30%] bg-emerald-950 border-t-8 border-emerald-900 rounded-tr-3xl z-10"></div>
+            
+            <!-- Right Bank -->
+            <div class="absolute right-0 bottom-0 w-[30%] h-[30%] bg-emerald-950 border-t-8 border-emerald-900 rounded-tl-3xl z-10"></div>
+            
+            <!-- River -->
+            <div class="absolute left-[30%] right-[30%] bottom-0 h-[25%] bg-blue-900/60 water-texture z-0 border-t-4 border-blue-800/50"></div>
+            
+            <!-- The Bridge -->
+            <div class="absolute left-[25%] right-[25%] bottom-[25%] h-8 bg-amber-950 border-y-4 border-amber-900 z-10 shadow-2xl flex justify-around items-center">
+                <!-- Bridge Planks -->
+                <div class="w-2 h-full bg-black/40"></div>
+                <div class="w-2 h-full bg-black/40"></div>
+                <div class="w-2 h-full bg-black/40"></div>
+                <div class="w-2 h-full bg-black/40"></div>
+                <div class="w-2 h-full bg-black/40"></div>
             </div>
 
-            <!-- Rules & Puzzle Constraints -->
-            <div class="md:col-span-6 bg-slate-900/80 border border-slate-800 rounded-2xl p-4 flex flex-col gap-3">
-                <h3 class="font-bold text-white text-sm flex items-center gap-2 border-b border-slate-800 pb-2">
-                    <i class="fa-solid fa-scroll text-amber-400"></i> Puzzle Rules & Constraints
-                </h3>
-                <ul class="text-xs text-slate-300 space-y-2 list-disc list-inside">
-                    <li><strong class="text-white">Torch Required:</strong> No one can cross the bridge without carrying the single torch.</li>
-                    <li><strong class="text-white">Max 2 Walkers:</strong> At most <span class="text-amber-400 font-semibold">2 people</span> can cross at the exact same time.</li>
-                    <li><strong class="text-white">Slower Pace Rule:</strong> When 2 people cross together, they walk at the <span class="text-amber-400 font-semibold">slower person's speed</span>.</li>
-                    <li><strong class="text-white">Time Limit:</strong> The torch only lasts <span class="text-amber-400 font-semibold">15 minutes total</span>!</li>
-                    <li><strong class="text-white">The Trick:</strong> Group the slowest walkers together to save overall time!</li>
+            <!-- Dynamic Torch Element -->
+            <div id="the-torch" class="absolute w-12 h-12 bg-amber-500/20 rounded-full flex items-center justify-center torch-glow transition-all duration-1500 ease-in-out z-40" style="bottom: 35%; left: 15%; transform: translateX(-50%);">
+                <i class="fa-solid fa-fire text-amber-400 text-3xl"></i>
+            </div>
+
+            <div id="characters-container" class="absolute inset-0 z-20">
+                <!-- Characters injected via JS -->
+            </div>
+            
+            <!-- Side Labels -->
+            <div class="absolute top-4 left-4 bg-slate-900/80 px-4 py-2 rounded-lg text-xl font-bold border border-slate-700 text-slate-400 z-10">START</div>
+            <div class="absolute top-4 right-4 bg-slate-900/80 px-4 py-2 rounded-lg text-xl font-bold border border-slate-700 text-slate-400 z-10">GOAL</div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            <!-- Rules -->
+            <div class="bg-slate-900 border border-slate-700 rounded-3xl p-6 md:p-8">
+                <h2 class="text-3xl font-bold text-white mb-6 flex items-center gap-3">
+                    <i class="fa-solid fa-book-open text-blue-400"></i> The Rules
+                </h2>
+                <ul class="space-y-4 text-xl text-slate-300">
+                    <li class="flex items-start gap-3">
+                        <i class="fa-solid fa-check text-emerald-500 mt-1"></i>
+                        <span>A maximum of <strong>2 people</strong> can cross at a time.</span>
+                    </li>
+                    <li class="flex items-start gap-3">
+                        <i class="fa-solid fa-check text-emerald-500 mt-1"></i>
+                        <span>They <strong>must</strong> have the torch to cross.</span>
+                    </li>
+                    <li class="flex items-start gap-3">
+                        <i class="fa-solid fa-check text-emerald-500 mt-1"></i>
+                        <span>They walk at the pace of the <strong>slower</strong> person.</span>
+                    </li>
+                    <li class="flex items-start gap-3">
+                        <i class="fa-solid fa-triangle-exclamation text-rose-500 mt-1"></i>
+                        <span>The torch burns out in exactly <strong>15 minutes</strong>!</span>
+                    </li>
                 </ul>
             </div>
 
+            <!-- Move History -->
+            <div class="bg-slate-900 border border-slate-700 rounded-3xl p-6 md:p-8 flex flex-col">
+                <h2 class="text-3xl font-bold text-white mb-6 flex items-center gap-3">
+                    <i class="fa-solid fa-clock-rotate-left text-amber-400"></i> History
+                </h2>
+                <div id="history-log" class="flex-1 overflow-y-auto max-h-[250px] space-y-3 pr-2 text-xl">
+                    <div class="text-slate-500 italic text-center py-8">Make your first move...</div>
+                </div>
+            </div>
         </div>
 
     </main>
 
-    <!-- Win / Loss Modal -->
-    <div id="status-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
-        <div class="bg-slate-900 border border-slate-700 rounded-3xl p-6 md:p-8 max-w-md w-full text-center shadow-2xl relative overflow-hidden">
-            <div id="modal-icon-container" class="w-16 h-16 rounded-2xl mx-auto flex items-center justify-center mb-4 text-3xl">
-                <!-- Icon inserted via JS -->
-            </div>
-            <h2 id="modal-title" class="text-2xl font-extrabold text-white mb-2"></h2>
-            <p id="modal-description" class="text-slate-300 text-sm mb-6"></p>
+    <div id="result-modal" class="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border-2 border-slate-700 rounded-[2rem] p-8 md:p-12 max-w-2xl w-full text-center shadow-2xl relative">
+            
+            <div id="modal-icon" class="text-7xl mb-6"></div>
+            <h2 id="modal-title" class="text-4xl md:text-5xl font-extrabold text-white mb-4"></h2>
+            <p id="modal-desc" class="text-2xl text-slate-300 mb-10 leading-relaxed"></p>
 
-            <div id="modal-stats" class="bg-slate-950 border border-slate-800 rounded-xl p-3 mb-6 flex justify-around text-xs">
+            <div class="grid grid-cols-2 gap-4 mb-10 text-left bg-slate-950 p-6 rounded-2xl border border-slate-800">
                 <div>
-                    <span class="text-slate-400 block">Total Time</span>
-                    <span id="modal-final-time" class="font-bold text-amber-400 text-base">15 mins</span>
+                    <span class="block text-slate-500 text-lg uppercase font-bold tracking-wider">Total Time</span>
+                    <span id="modal-time" class="text-4xl font-black text-amber-400"></span>
                 </div>
-                <div class="border-r border-slate-800"></div>
                 <div>
-                    <span class="text-slate-400 block">Total Trips</span>
-                    <span id="modal-final-moves" class="font-bold text-emerald-400 text-base">5 trips</span>
+                    <span class="block text-slate-500 text-lg uppercase font-bold tracking-wider">Target</span>
+                    <span class="text-4xl font-black text-white">15 min</span>
                 </div>
             </div>
 
-            <div class="flex flex-col gap-2">
-                <button onclick="resetGame(); closeModal();" class="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-sm transition">
+            <div class="flex flex-col md:flex-row gap-4">
+                <button onclick="resetGame()" class="flex-1 py-5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-2xl transition">
                     Play Again
                 </button>
-                <button onclick="closeModal(); toggleHintModal();" class="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs transition">
-                    View Step-by-Step Solution
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Solution Guide Modal -->
-    <div id="hint-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
-        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-xl w-full max-h-[90vh] flex flex-col shadow-2xl">
-            <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
-                <div class="flex items-center gap-2">
-                    <i class="fa-solid fa-lightbulb text-amber-400 text-lg"></i>
-                    <h2 class="text-lg font-bold text-white">How to Solve in 15 Minutes</h2>
-                </div>
-                <button onclick="toggleHintModal()" class="text-slate-400 hover:text-white p-1">
-                    <i class="fa-solid fa-xmark text-lg"></i>
-                </button>
-            </div>
-
-            <div class="overflow-y-auto space-y-3 pr-2 text-xs text-slate-300 flex-1">
-                <div class="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl mb-3 text-amber-300">
-                    <strong>Key Insight:</strong> Sending Cindy (5 min) and David (8 min) individually wastes 13 total minutes on returns! If you send them <em>together</em>, it only costs 8 minutes for both. You then use the fastest runners (Alice & Ben) to carry the torch back!
-                </div>
-
-                <div class="space-y-2">
-                    <!-- Step 1 -->
-                    <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 flex items-start gap-3">
-                        <span class="w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 font-extrabold flex items-center justify-center text-xs shrink-0">1</span>
-                        <div>
-                            <div class="font-bold text-white">Alice (1m) & Ben (2m) cross right</div>
-                            <div class="text-slate-400 mt-0.5">Time taken: 2 min • Cumulative: <span class="text-amber-400 font-semibold">2 min</span></div>
-                        </div>
-                    </div>
-
-                    <!-- Step 2 -->
-                    <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 flex items-start gap-3">
-                        <span class="w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 font-extrabold flex items-center justify-center text-xs shrink-0">2</span>
-                        <div>
-                            <div class="font-bold text-white">Alice (1m) returns left with torch</div>
-                            <div class="text-slate-400 mt-0.5">Time taken: 1 min • Cumulative: <span class="text-amber-400 font-semibold">3 min</span></div>
-                        </div>
-                    </div>
-
-                    <!-- Step 3 -->
-                    <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 flex items-start gap-3">
-                        <span class="w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 font-extrabold flex items-center justify-center text-xs shrink-0">3</span>
-                        <div>
-                            <div class="font-bold text-white">Cindy (5m) & David (8m) cross right</div>
-                            <div class="text-slate-400 mt-0.5">Time taken: 8 min • Cumulative: <span class="text-amber-400 font-semibold">11 min</span></div>
-                        </div>
-                    </div>
-
-                    <!-- Step 4 -->
-                    <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 flex items-start gap-3">
-                        <span class="w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 font-extrabold flex items-center justify-center text-xs shrink-0">4</span>
-                        <div>
-                            <div class="font-bold text-white">Ben (2m) returns left with torch</div>
-                            <div class="text-slate-400 mt-0.5">Time taken: 2 min • Cumulative: <span class="text-amber-400 font-semibold">13 min</span></div>
-                        </div>
-                    </div>
-
-                    <!-- Step 5 -->
-                    <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 flex items-start gap-3">
-                        <span class="w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 font-extrabold flex items-center justify-center text-xs shrink-0">5</span>
-                        <div>
-                            <div class="font-bold text-white">Alice (1m) & Ben (2m) cross right</div>
-                            <div class="text-slate-400 mt-0.5">Time taken: 2 min • Cumulative: <span class="text-amber-400 font-semibold">15 min</span></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="mt-4 pt-3 border-t border-slate-800 flex justify-between gap-3">
-                <button onclick="autoSolveGame()" class="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition flex items-center gap-1.5">
-                    <i class="fa-solid fa-play"></i> Auto-Play Solution
-                </button>
-                <button onclick="toggleHintModal()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs transition">
-                    Close Guide
+                <button onclick="document.getElementById('result-modal').classList.add('hidden')" class="py-5 px-8 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xl transition">
+                    Review Board
                 </button>
             </div>
         </div>
     </div>
 
     <script>
-        // Character Definitions
+        // Character Configuration
         const CHARACTERS = [
-            { id: 'alice', name: 'Alice', time: 1, icon: 'fa-user-ninja', color: 'border-cyan-500/50 text-cyan-400 bg-cyan-500/10' },
-            { id: 'ben', name: 'Ben', time: 2, icon: 'fa-user-runner', color: 'border-blue-500/50 text-blue-400 bg-blue-500/10' },
-            { id: 'cindy', name: 'Cindy', time: 5, icon: 'fa-user-graduate', color: 'border-purple-500/50 text-purple-400 bg-purple-500/10' },
-            { id: 'david', name: 'David', time: 8, icon: 'fa-user-tie', color: 'border-emerald-500/50 text-emerald-400 bg-emerald-500/10' }
+            { id: 'alice', name: 'Alice', time: 1, color: 'bg-pink-500', icon: 'fa-user-ninja' },
+            { id: 'ben', name: 'Ben', time: 2, color: 'bg-blue-500', icon: 'fa-user-astronaut' },
+            { id: 'cindy', name: 'Cindy', time: 5, color: 'bg-purple-500', icon: 'fa-user-secret' },
+            { id: 'david', name: 'David', time: 8, color: 'bg-emerald-500', icon: 'fa-user-tie' }
         ];
 
-        // Game State
-        let gameState = {
-            left: ['alice', 'ben', 'cindy', 'david'],
-            right: [],
-            torchPosition: 'left', // 'left' or 'right'
+        // Screen Positions (Percentages of left)
+        const POSITIONS = {
+            left: [7, 14, 21, 28],    // Spread out on left bank
+            right: [72, 79, 86, 93]   // Spread out on right bank
+        };
+
+        // Core Game State
+        let state = {
+            chars: {
+                alice: { side: 'left', slot: 0 },
+                ben:   { side: 'left', slot: 1 },
+                cindy: { side: 'left', slot: 2 },
+                david: { side: 'left', slot: 3 }
+            },
+            torchSide: 'left',
             selected: [],
             elapsedTime: 0,
-            maxTime: 15,
-            history: [], // Stack of snapshots for Undo
-            movesLog: [],
-            isAnimating: false
+            isAnimating: false,
+            history: [],
+            moves: []
         };
 
         // DOM Elements
-        const leftContainer = document.getElementById('left-side-container');
-        const rightContainer = document.getElementById('right-side-container');
-        const bridgeTransit = document.getElementById('bridge-transit-area');
+        const container = document.getElementById('characters-container');
+        const torchEl = document.getElementById('the-torch');
         const timeDisplay = document.getElementById('time-display');
-        const timeProgressBar = document.getElementById('time-progress-bar');
-        const timerPercent = document.getElementById('timer-percent');
-        const movesCountText = document.getElementById('moves-count-text');
-        const torchLocationText = document.getElementById('torch-location-text');
-        const leftTorchBadge = document.getElementById('left-torch-badge');
-        const rightTorchBadge = document.getElementById('right-torch-badge');
+        const instructionText = document.getElementById('instruction-text');
         const crossBtn = document.getElementById('cross-btn');
-        const crossBtnText = document.getElementById('cross-btn-text');
         const undoBtn = document.getElementById('undo-btn');
-        const historyList = document.getElementById('history-list');
-        const logCount = document.getElementById('log-count');
+        const historyLog = document.getElementById('history-log');
 
-        // Initial Render on Page Load
-        window.addEventListener('DOMContentLoaded', () => {
-            renderGame();
-        });
-
-        function renderGame() {
-            // Render Left Side Cards
-            leftContainer.innerHTML = '';
-            gameState.left.forEach(charId => {
-                const char = CHARACTERS.find(c => c.id === charId);
-                const isSelected = gameState.selected.includes(charId);
-                const card = createCharacterCard(char, 'left', isSelected);
-                leftContainer.appendChild(card);
+        function init() {
+            container.innerHTML = '';
+            
+            // Create DOM elements for characters
+            CHARACTERS.forEach(char => {
+                const el = document.createElement('div');
+                el.id = `char-${char.id}`;
+                el.className = `character-node flex flex-col items-center justify-center cursor-pointer transition-all hover:scale-105`;
+                el.onclick = () => toggleSelect(char.id);
+                
+                // Big Avatar Circle
+                el.innerHTML = `
+                    <div class="w-20 h-20 md:w-24 md:h-24 rounded-full ${char.color} border-4 border-white/20 flex flex-col items-center justify-center shadow-xl mb-2 relative overflow-hidden">
+                        <i class="fa-solid ${char.icon} text-3xl md:text-4xl text-white/90"></i>
+                    </div>
+                    <div class="bg-slate-900/90 border border-slate-700 px-4 py-1 rounded-xl text-center shadow-lg">
+                        <div class="text-xl font-bold text-white leading-tight">${char.name}</div>
+                        <div class="text-lg font-black text-amber-400">${char.time}m</div>
+                    </div>
+                `;
+                container.appendChild(el);
             });
-            if (gameState.left.length === 0) {
-                leftContainer.innerHTML = `<div class="text-xs text-slate-600 italic text-center py-8">Everyone has left this side</div>`;
-            }
 
-            // Render Right Side Cards
-            rightContainer.innerHTML = '';
-            gameState.right.forEach(charId => {
-                const char = CHARACTERS.find(c => c.id === charId);
-                const isSelected = gameState.selected.includes(charId);
-                const card = createCharacterCard(char, 'right', isSelected);
-                rightContainer.appendChild(card);
-            });
-            if (gameState.right.length === 0) {
-                rightContainer.innerHTML = `<div class="text-xs text-slate-600 italic text-center py-8 flex flex-col items-center gap-2"><i class="fa-solid fa-flag-checkered text-slate-700 text-xl"></i> Destination Bank</div>`;
-            }
-
-            // Render Bridge Selection Transit Area
-            if (gameState.selected.length === 0) {
-                bridgeTransit.innerHTML = `<span class="text-xs text-slate-500 italic font-medium">Select up to 2 people on torch side</span>`;
-            } else {
-                bridgeTransit.innerHTML = '';
-                gameState.selected.forEach(charId => {
-                    const char = CHARACTERS.find(c => c.id === charId);
-                    const tag = document.createElement('div');
-                    tag.className = `px-3 py-1.5 rounded-lg border text-xs font-bold flex items-center gap-2 bg-slate-900 shadow-md ${char.color}`;
-                    tag.innerHTML = `
-                        <i class="fa-solid ${char.icon}"></i>
-                        <span>${char.name} (${char.time}m)</span>
-                        <i class="fa-solid fa-fire text-amber-400 text-xs flame"></i>
-                    `;
-                    bridgeTransit.appendChild(tag);
-                });
-            }
-
-            // Update Torch Indicators
-            if (gameState.torchPosition === 'left') {
-                torchLocationText.innerHTML = `<i class="fa-solid fa-fire flame text-amber-400"></i> Starting Bank (Left)`;
-                torchLocationText.className = "text-lg font-bold text-amber-400 flex items-center gap-2";
-                leftTorchBadge.classList.remove('hidden');
-                leftTorchBadge.classList.add('flex');
-                rightTorchBadge.classList.add('hidden');
-                rightTorchBadge.classList.remove('flex');
-                crossBtnText.textContent = "CROSS RIGHT →";
-            } else {
-                torchLocationText.innerHTML = `<i class="fa-solid fa-fire flame text-amber-400"></i> Destination Bank (Right)`;
-                torchLocationText.className = "text-lg font-bold text-emerald-400 flex items-center gap-2";
-                leftTorchBadge.classList.add('hidden');
-                leftTorchBadge.classList.remove('flex');
-                rightTorchBadge.classList.remove('hidden');
-                rightTorchBadge.classList.add('flex');
-                crossBtnText.textContent = "← RETURN LEFT";
-            }
-
-            // Update Time Display & Progress Bar
-            timeDisplay.textContent = gameState.elapsedTime;
-            const remainingPercent = Math.max(0, Math.round(((15 - gameState.elapsedTime) / 15) * 100));
-            timerPercent.textContent = `${remainingPercent}%`;
-            timeProgressBar.style.width = `${remainingPercent}%`;
-
-            if (gameState.elapsedTime > 15) {
-                timeDisplay.className = "text-3xl font-extrabold text-rose-500 tracking-tight animate-pulse";
-                timeProgressBar.className = "bg-rose-600 h-full w-full transition-all duration-500 rounded-full";
-            } else {
-                timeDisplay.className = "text-3xl font-extrabold text-amber-400 tracking-tight";
-                timeProgressBar.className = "bg-gradient-to-r from-emerald-500 via-amber-500 to-rose-500 h-full w-full transition-all duration-500 rounded-full";
-            }
-
-            // Update Buttons State
-            crossBtn.disabled = gameState.selected.length === 0 || gameState.selected.length > 2 || gameState.isAnimating;
-            undoBtn.disabled = gameState.history.length === 0 || gameState.isAnimating;
-            movesCountText.textContent = `Moves: ${gameState.movesLog.length}`;
-            logCount.textContent = `${gameState.movesLog.length} ${gameState.movesLog.length === 1 ? 'trip' : 'trips'} taken`;
-
-            // Render History Log
-            renderHistoryLog();
+            renderState();
         }
 
-        function createCharacterCard(char, side, isSelected) {
-            const isTorchSide = gameState.torchPosition === side;
-            const card = document.createElement('div');
-            
-            let baseClasses = `p-3 rounded-xl border transition-all duration-150 flex items-center justify-between cursor-pointer select-none `;
-            
-            if (isSelected) {
-                baseClasses += `ring-2 ring-amber-400 bg-amber-500/20 border-amber-400/80 shadow-lg scale-[1.02] `;
-            } else if (isTorchSide) {
-                baseClasses += `bg-slate-950/90 border-slate-800 hover:border-slate-700 hover:bg-slate-800/60 `;
-            } else {
-                baseClasses += `bg-slate-950/40 border-slate-900/60 opacity-60 cursor-not-allowed `;
-            }
+        function renderState() {
+            // Update Character Positions & Visuals
+            CHARACTERS.forEach(char => {
+                const el = document.getElementById(`char-${char.id}`);
+                const charState = state.chars[char.id];
+                
+                // Calculate position
+                const targetLeft = POSITIONS[charState.side][charState.slot];
+                el.style.left = `${targetLeft}%`;
 
-            card.className = baseClasses;
-            card.innerHTML = `
-                <div class="flex items-center gap-3">
-                    <div class="w-9 h-9 rounded-lg border flex items-center justify-center text-sm ${char.color}">
-                        <i class="fa-solid ${char.icon}"></i>
-                    </div>
-                    <div>
-                        <div class="font-bold text-white text-sm">${char.name}</div>
-                        <div class="text-[11px] font-medium text-slate-400 flex items-center gap-1">
-                            <i class="fa-regular fa-clock text-amber-400/80"></i> ${char.time} min ${char.time > 1 ? 's' : ''}
-                        </div>
-                    </div>
-                </div>
-                ${isSelected ? '<i class="fa-solid fa-circle-check text-amber-400 text-lg"></i>' : isTorchSide ? '<i class="fa-regular fa-circle text-slate-600 text-lg"></i>' : ''}
-            `;
-
-            if (isTorchSide && !gameState.isAnimating) {
-                card.onclick = () => toggleSelectCharacter(char.id);
-            }
-
-            return card;
-        }
-
-        function toggleSelectCharacter(charId) {
-            if (gameState.selected.includes(charId)) {
-                gameState.selected = gameState.selected.filter(id => id !== charId);
-            } else {
-                if (gameState.selected.length >= 2) {
-                    // Maximum 2 selection limit
-                    gameState.selected.shift(); // Remove oldest selection
+                // Update Selection styling
+                if (state.selected.includes(char.id)) {
+                    el.children[0].classList.add('selected-char');
+                } else {
+                    el.children[0].classList.remove('selected-char');
                 }
-                gameState.selected.push(charId);
+
+                // Dim characters not on torch side
+                if (charState.side !== state.torchSide && !state.isAnimating) {
+                    el.style.opacity = '0.5';
+                    el.style.pointerEvents = 'none';
+                    el.style.filter = 'grayscale(0.8)';
+                } else {
+                    el.style.opacity = '1';
+                    el.style.pointerEvents = 'auto';
+                    el.style.filter = 'grayscale(0)';
+                }
+            });
+
+            // Update Torch Position
+            // If someone is selected, position torch near them, else middle of the bank
+            let torchLeft;
+            if (state.isAnimating) {
+                 // During animation, move torch to middle of selected group
+                 const selectedL = state.selected.map(id => POSITIONS[state.chars[id].side][state.chars[id].slot]);
+                 const avgL = selectedL.reduce((a,b) => a+b, 0) / selectedL.length;
+                 torchLeft = avgL;
+            } else if (state.selected.length > 0) {
+                // Attach to first selected
+                const firstSelected = state.selected[0];
+                torchLeft = POSITIONS[state.chars[firstSelected].side][state.chars[firstSelected].slot] + 5; // Offset slightly
+            } else {
+                // Default bank position
+                torchLeft = state.torchSide === 'left' ? 15 : 85;
             }
-            renderGame();
+            torchEl.style.left = `${torchLeft}%`;
+
+            // Update UI Elements
+            timeDisplay.textContent = state.elapsedTime;
+            
+            if (state.elapsedTime > 15) {
+                timeDisplay.classList.add('text-rose-500');
+                timeDisplay.classList.remove('text-amber-400');
+            } else {
+                timeDisplay.classList.remove('text-rose-500');
+                timeDisplay.classList.add('text-amber-400');
+            }
+
+            // Button states
+            crossBtn.disabled = state.selected.length === 0 || state.selected.length > 2 || state.isAnimating;
+            undoBtn.disabled = state.history.length === 0 || state.isAnimating;
+
+            // Update Button Text Context
+            if (state.torchSide === 'left') {
+                crossBtn.innerHTML = `CROSS <i class="fa-solid fa-arrow-right ml-2"></i>`;
+                crossBtn.className = "flex-1 sm:flex-none px-8 py-3 bg-amber-500 hover:bg-amber-400 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed text-slate-950 rounded-xl text-2xl font-extrabold transition shadow-[0_0_15px_rgba(245,158,11,0.4)] flex items-center justify-center";
+            } else {
+                crossBtn.innerHTML = `<i class="fa-solid fa-arrow-left mr-2"></i> RETURN`;
+                crossBtn.className = "flex-1 sm:flex-none px-8 py-3 bg-blue-500 hover:bg-blue-400 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed text-white rounded-xl text-2xl font-extrabold transition shadow-[0_0_15px_rgba(59,130,246,0.4)] flex items-center justify-center";
+            }
+
+            // Update Instructions
+            if (state.selected.length === 0) {
+                instructionText.textContent = `Select 1 or 2 people to walk to the ${state.torchSide === 'left' ? 'Right' : 'Left'}.`;
+            } else {
+                const maxTime = Math.max(...state.selected.map(id => CHARACTERS.find(c=>c.id===id).time));
+                instructionText.innerHTML = `Trip takes <strong class="text-amber-400 text-2xl mx-2">${maxTime}</strong> minutes.`;
+            }
+
+            renderHistory();
         }
 
-        function clearSelection() {
-            gameState.selected = [];
-            renderGame();
+        function toggleSelect(charId) {
+            if (state.isAnimating) return;
+            
+            // Only allow selection on torch side
+            if (state.chars[charId].side !== state.torchSide) return;
+
+            const idx = state.selected.indexOf(charId);
+            if (idx > -1) {
+                state.selected.splice(idx, 1);
+            } else {
+                if (state.selected.length >= 2) {
+                    state.selected.shift(); // Remove oldest
+                }
+                state.selected.push(charId);
+            }
+            renderState();
+        }
+
+        // Deep copy helper for history
+        function copyState() {
+            return JSON.parse(JSON.stringify({
+                chars: state.chars,
+                torchSide: state.torchSide,
+                elapsedTime: state.elapsedTime,
+                moves: state.moves
+            }));
         }
 
         function executeMove() {
-            if (gameState.selected.length === 0 || gameState.selected.length > 2 || gameState.isAnimating) return;
+            if (state.selected.length === 0 || state.isAnimating) return;
 
-            // Save Snapshot for Undo
-            gameState.history.push({
-                left: [...gameState.left],
-                right: [...gameState.right],
-                torchPosition: gameState.torchPosition,
-                elapsedTime: gameState.elapsedTime,
-                movesLog: [...gameState.movesLog]
-            });
+            // Save history
+            state.history.push(copyState());
+            
+            state.isAnimating = true;
 
-            gameState.isAnimating = true;
-
-            // Calculate slowest person's time
-            const selectedChars = gameState.selected.map(id => CHARACTERS.find(c => c.id === id));
+            // Calculate metrics
+            const selectedChars = state.selected.map(id => CHARACTERS.find(c => c.id === id));
             const tripTime = Math.max(...selectedChars.map(c => c.time));
             const names = selectedChars.map(c => c.name).join(' & ');
-            const fromSide = gameState.torchPosition;
-            const toSide = fromSide === 'left' ? 'right' : 'left';
+            const targetSide = state.torchSide === 'left' ? 'right' : 'left';
 
-            // Add animation state
-            bridgeTransit.classList.add('walking');
+            // Add Walking Animation Class
+            state.selected.forEach(id => {
+                document.getElementById(`char-${id}`).classList.add('is-walking');
+            });
 
+            // Wait 100ms for UI to sync, then apply logical position changes
+            // so CSS transitions trigger.
             setTimeout(() => {
-                // Update lists
-                gameState[fromSide] = gameState[fromSide].filter(id => !gameState.selected.includes(id));
-                gameState[toSide].push(...gameState.selected);
-
-                // Update Torch & Time
-                gameState.torchPosition = toSide;
-                gameState.elapsedTime += tripTime;
-
-                // Log entry
-                gameState.movesLog.push({
-                    trip: gameState.movesLog.length + 1,
-                    names: names,
-                    time: tripTime,
-                    cumulative: gameState.elapsedTime,
-                    direction: fromSide === 'left' ? '→ Right' : '← Left'
+                
+                // Re-calculate slots to pack characters together
+                // Find open slots on target side
+                const takenSlots = Object.values(state.chars)
+                    .filter(c => c.side === targetSide)
+                    .map(c => c.slot);
+                
+                let nextAvailableSlot = 0;
+                
+                state.selected.forEach(id => {
+                    while (takenSlots.includes(nextAvailableSlot)) {
+                        nextAvailableSlot++;
+                    }
+                    state.chars[id].side = targetSide;
+                    state.chars[id].slot = nextAvailableSlot;
+                    takenSlots.push(nextAvailableSlot);
                 });
 
-                // Clear selection
-                gameState.selected = [];
-                gameState.isAnimating = false;
-                bridgeTransit.classList.remove('walking');
+                state.torchSide = targetSide;
+                state.elapsedTime += tripTime;
 
-                renderGame();
+                state.moves.push({
+                    text: `${names} crossed`,
+                    time: tripTime,
+                    total: state.elapsedTime,
+                    dir: targetSide === 'right' ? '→' : '←'
+                });
 
-                // Check Win/Loss conditions
-                checkGameEnd();
-            }, 400);
+                // Update rendering to start CSS translation
+                renderState();
+
+                // Wait for CSS transition (1.5s) to finish
+                setTimeout(() => {
+                    // Remove walking animation
+                    state.selected.forEach(id => {
+                        document.getElementById(`char-${id}`).classList.remove('is-walking');
+                    });
+                    
+                    state.selected = [];
+                    state.isAnimating = false;
+                    renderState();
+                    
+                    checkWinCondition();
+                    
+                }, 1500);
+
+            }, 50);
         }
 
         function undoMove() {
-            if (gameState.history.length === 0 || gameState.isAnimating) return;
-
-            const previousState = gameState.history.pop();
-            gameState.left = previousState.left;
-            gameState.right = previousState.right;
-            gameState.torchPosition = previousState.torchPosition;
-            gameState.elapsedTime = previousState.elapsedTime;
-            gameState.movesLog = previousState.movesLog;
-            gameState.selected = [];
-
-            renderGame();
+            if (state.history.length === 0 || state.isAnimating) return;
+            const prev = state.history.pop();
+            
+            state.chars = prev.chars;
+            state.torchSide = prev.torchSide;
+            state.elapsedTime = prev.elapsedTime;
+            state.moves = prev.moves;
+            state.selected = [];
+            
+            renderState();
         }
 
-        function resetGame() {
-            gameState = {
-                left: ['alice', 'ben', 'cindy', 'david'],
-                right: [],
-                torchPosition: 'left',
-                selected: [],
-                elapsedTime: 0,
-                maxTime: 15,
-                history: [],
-                movesLog: [],
-                isAnimating: false
-            };
-            renderGame();
-        }
-
-        function renderHistoryLog() {
-            if (gameState.movesLog.length === 0) {
-                historyList.innerHTML = `
-                    <div class="text-xs text-slate-500 italic py-4 text-center">
-                        No moves made yet. Select people on the bank with the torch to start crossing.
-                    </div>`;
+        function renderHistory() {
+            if (state.moves.length === 0) {
+                historyLog.innerHTML = `<div class="text-slate-500 italic text-center py-8">Make your first move...</div>`;
                 return;
             }
 
-            historyList.innerHTML = '';
-            gameState.movesLog.forEach(log => {
-                const item = document.createElement('div');
-                item.className = "bg-slate-950 p-2.5 rounded-xl border border-slate-800/80 flex items-center justify-between text-xs";
-                item.innerHTML = `
-                    <div class="flex items-center gap-2">
-                        <span class="w-5 h-5 rounded-full bg-slate-800 text-amber-400 font-bold flex items-center justify-center text-[10px] shrink-0">
-                            ${log.trip}
-                        </span>
-                        <span class="font-semibold text-white">${log.names}</span>
-                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">${log.direction}</span>
+            historyLog.innerHTML = state.moves.map((m, i) => `
+                <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 flex justify-between items-center transform transition animate-fade-in">
+                    <div class="flex items-center gap-3">
+                        <span class="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center font-bold text-slate-400 border border-slate-700">${i + 1}</span>
+                        <span class="font-bold text-white">${m.text}</span>
+                        <span class="text-amber-500 font-black ml-2">${m.dir}</span>
                     </div>
-                    <div class="text-slate-400">
-                        +${log.time}m <span class="text-amber-400 font-bold ml-1">(${log.cumulative}m total)</span>
+                    <div class="text-right">
+                        <div class="text-slate-400 text-base">+${m.time}m</div>
+                        <div class="text-amber-400 font-bold text-xl">${m.total}m total</div>
                     </div>
-                `;
-                historyList.appendChild(item);
-            });
-
-            // Scroll to bottom of log
-            historyList.scrollTop = historyList.scrollHeight;
-        }
-
-        function checkGameEnd() {
-            const allCrossed = gameState.right.length === 4;
-
-            if (allCrossed) {
-                if (gameState.elapsedTime <= 15) {
-                    showModal(
-                        true,
-                        "Riddle Solved! 🎉",
-                        `Outstanding! You guided everyone across the bridge safely in <strong>${gameState.elapsedTime} minutes</strong>, right before the torch burned out!`,
-                        "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40",
-                        "fa-trophy"
-                    );
-                } else {
-                    showModal(
-                        false,
-                        "Torch Burned Out! 🕯️",
-                        `Everyone made it across, but it took <strong>${gameState.elapsedTime} minutes</strong>. The torch only lasts 15 minutes! Try again using a smarter pairing strategy.`,
-                        "bg-rose-500/20 text-rose-400 border border-rose-500/40",
-                        "fa-triangle-exclamation"
-                    );
-                }
-            }
-        }
-
-        function showModal(isWin, title, description, badgeStyle, iconClass) {
-            const modal = document.getElementById('status-modal');
-            const modalIconContainer = document.getElementById('modal-icon-container');
-            const modalTitle = document.getElementById('modal-title');
-            const modalDesc = document.getElementById('modal-description');
-            const modalFinalTime = document.getElementById('modal-final-time');
-            const modalFinalMoves = document.getElementById('modal-final-moves');
-
-            modalIconContainer.className = `w-16 h-16 rounded-2xl mx-auto flex items-center justify-center mb-4 text-3xl ${badgeStyle}`;
-            modalIconContainer.innerHTML = `<i class="fa-solid ${iconClass}"></i>`;
+                </div>
+            `).join('');
             
-            modalTitle.textContent = title;
-            modalDesc.innerHTML = description;
-            modalFinalTime.textContent = `${gameState.elapsedTime} mins`;
-            modalFinalMoves.textContent = `${gameState.movesLog.length} trips`;
-
-            modal.classList.remove('hidden');
+            // Scroll to bottom
+            historyLog.scrollTop = historyLog.scrollHeight;
         }
 
-        function closeModal() {
-            document.getElementById('status-modal').classList.add('hidden');
-        }
+        function checkWinCondition() {
+            // Check if everyone is on the right side
+            const allRight = Object.values(state.chars).every(c => c.side === 'right');
+            
+            if (allRight) {
+                const modal = document.getElementById('result-modal');
+                const title = document.getElementById('modal-title');
+                const desc = document.getElementById('modal-desc');
+                const icon = document.getElementById('modal-icon');
+                const timeStr = document.getElementById('modal-time');
 
-        function toggleHintModal() {
-            const hintModal = document.getElementById('hint-modal');
-            hintModal.classList.toggle('hidden');
-        }
+                timeStr.textContent = `${state.elapsedTime} mins`;
 
-        function autoSolveGame() {
-            toggleHintModal();
-            resetGame();
+                if (state.elapsedTime <= 15) {
+                    title.textContent = "Brilliant! 🎉";
+                    title.className = "text-5xl font-extrabold text-emerald-400 mb-4";
+                    desc.innerHTML = "You successfully guided everyone across the treacherous bridge before the torch burned out! You've mastered the logic.";
+                    icon.innerHTML = '<i class="fa-solid fa-trophy text-emerald-400 drop-shadow-[0_0_15px_rgba(52,211,153,0.8)]"></i>';
+                } else {
+                    title.textContent = "Torch Burned Out! 🕯️";
+                    title.className = "text-5xl font-extrabold text-rose-500 mb-4";
+                    desc.innerHTML = "Everyone made it, but you took too long. The torch only lasts 15 minutes! Try rethinking your combinations. (Hint: group the slowest together).";
+                    icon.innerHTML = '<i class="fa-solid fa-skull-crossbones text-rose-500 drop-shadow-[0_0_15px_rgba(244,63,94,0.8)]"></i>';
+                }
 
-            const solutionMoves = [
-                ['alice', 'ben'],  // Step 1: Alice & Ben cross right (2m)
-                ['alice'],          // Step 2: Alice returns left (1m)
-                ['cindy', 'david'],// Step 3: Cindy & David cross right (8m)
-                ['ben'],            // Step 4: Ben returns left (2m)
-                ['alice', 'ben']   // Step 5: Alice & Ben cross right (2m)
-            ];
-
-            let stepIndex = 0;
-
-            function runStep() {
-                if (stepIndex >= solutionMoves.length) return;
-
-                gameState.selected = [...solutionMoves[stepIndex]];
-                renderGame();
-
-                setTimeout(() => {
-                    executeMove();
-                    stepIndex++;
-                    if (stepIndex < solutionMoves.length) {
-                        setTimeout(runStep, 1000);
-                    }
-                }, 600);
+                modal.classList.remove('hidden');
             }
-
-            setTimeout(runStep, 400);
         }
+
+        function resetGame() {
+            state = {
+                chars: {
+                    alice: { side: 'left', slot: 0 },
+                    ben:   { side: 'left', slot: 1 },
+                    cindy: { side: 'left', slot: 2 },
+                    david: { side: 'left', slot: 3 }
+                },
+                torchSide: 'left',
+                selected: [],
+                elapsedTime: 0,
+                isAnimating: false,
+                history: [],
+                moves: []
+            };
+            document.getElementById('result-modal').classList.add('hidden');
+            init();
+        }
+
+        // Run setup on load
+        window.addEventListener('DOMContentLoaded', init);
+
     </script>
 </body>
 </html>
